@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useEffect, useState } from "react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -24,6 +24,18 @@ export default function Home() {
   const [flashcards, setFlashcards] = useState([]);
   const [isSimplifiedMode, setIsSimplifiedMode] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [session, setSession] = useState(null)
+
+  useEffect(() => {
+    const initializeSession = async () => {
+      //@ts-ignore
+      const ses = await window.ai.languageModel.create();
+      setSession(ses)
+      console.log("AI Session created");
+    };
+
+    initializeSession();
+  }, []);
 
   // Simulated cache for demo purposes
   const summaryCache = new Map();
@@ -35,8 +47,8 @@ export default function Home() {
     personal: ["goals", "ideas", "thoughts", "plans", "journal"],
   };
 
-  // Grok API summarization
-  const generateGrokSummary = async (
+  // Chrome Built In AI
+  const generateSummary = async (
     text: string,
     format: string,
     simplified: boolean
@@ -59,47 +71,12 @@ export default function Home() {
       }
 
       // Replace this with your actual Grok API call
-      const response = await fetch("YOUR_GROK_API_ENDPOINT", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: "Bearer YOUR_GROK_API_KEY",
-        },
-        body: JSON.stringify({
-          prompt: prompt,
-          max_tokens: 500,
-          temperature: 0.7,
-        }),
-      });
-
-      const data = await response.json();
-      return data.choices[0].text.trim();
+      //@ts-ignore
+      const response = await session!.prompt(prompt)
+      return response;
     } catch (error) {
-      console.error("Error calling Grok API:", error);
-      // Fallback to offline summarization
-      return generateOfflineSummary(text, format, simplified);
+      console.error("Error calling gemini nano");
     }
-  };
-
-  // Offline summarization fallback
-  const generateOfflineSummary = (
-    text: string,
-    format: string,
-    simplified: boolean
-  ) => {
-    const sentences = text.split(". ");
-    const summarized = sentences
-      .filter((_, i) => i % (simplified ? 3 : 2) === 0)
-      .join(". ");
-
-    if (format === "bullets") {
-      return summarized
-        .split(". ")
-        .map((s) => `• ${s}`)
-        .join("\n");
-    }
-
-    return summarized;
   };
 
   // Topic detection
@@ -128,21 +105,9 @@ export default function Home() {
         isSimplifiedMode ? "3" : "5"
       } flashcard-style question-answer pairs from this text. Format each pair as "Q: question | A: answer":\n\n${text}`;
 
-      const response = await fetch("YOUR_GROK_API_ENDPOINT", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: "Bearer YOUR_GROK_API_KEY",
-        },
-        body: JSON.stringify({
-          prompt: prompt,
-          max_tokens: 500,
-          temperature: 0.7,
-        }),
-      });
-
-      const data = await response.json();
-      const pairs = data.choices[0].text.trim().split("\n");
+      //@ts-ignore
+      const response = await await session!.prompt(prompt)
+      const pairs = response.split("\n");
 
       return pairs.map((pair: string, index: number) => {
         const [question, answer] = pair.split(" | ");
@@ -188,7 +153,7 @@ export default function Home() {
       if (summaryCache.has(cacheKey)) {
         generatedSummary = summaryCache.get(cacheKey);
       } else {
-        generatedSummary = await generateGrokSummary(
+        generatedSummary = await generateSummary(
           inputText,
           summaryFormat,
           isSimplifiedMode
@@ -218,8 +183,8 @@ export default function Home() {
   };
 
   return (
-    <div className="max-w-4xl h-screen mx-auto p-4 bg-sky-200">
-      <div>
+    <div className="max-w-4xl min-h-screen mx-auto p-4">
+      <div className="w-full">
         <div>
           <div className="flex items-center justify-between my-5 tracking-wider">
             <h1 className="text-5xl font-black underline">Briefly</h1>
@@ -244,26 +209,7 @@ export default function Home() {
               </Button>
             </div>
 
-            <div className="flex gap-4 items-center">
-              <Select value={summaryFormat} onValueChange={setSummaryFormat}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Format" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="bullets">Bullet Points</SelectItem>
-                  <SelectItem value="paragraph">Paragraph</SelectItem>
-                  <SelectItem value="qa">Q&A</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Button
-                variant="outline"
-                onClick={() => setIsSimplifiedMode(!isSimplifiedMode)}
-                size={"lg"}
-              >
-                {isSimplifiedMode ? "Detailed Mode" : "Simplified Mode"}
-              </Button>
-
+            <div className="grid sm:grid-cols-3 grid-cols-2 gap-4 items-center h-fit w-screen!">
               <Button
                 onClick={handleGenerateSummary}
                 disabled={isLoading || !inputText.trim()}
@@ -279,6 +225,25 @@ export default function Home() {
                   "Generate Summary"
                 )}
               </Button>
+
+              <Button
+                variant="outline"
+                onClick={() => setIsSimplifiedMode(!isSimplifiedMode)}
+                size={"lg"}
+              >
+                {isSimplifiedMode ? "Detailed Mode" : "Simplified Mode"}
+              </Button>
+
+              <Select value={summaryFormat} onValueChange={setSummaryFormat}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Format" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="bullets">Bullet Points</SelectItem>
+                  <SelectItem value="paragraph">Paragraph</SelectItem>
+                  <SelectItem value="qa">Q&A</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <Tabs defaultValue="summary">
@@ -294,29 +259,33 @@ export default function Home() {
               </TabsList>
 
               <TabsContent value="summary" className="mt-4">
-                {summary && 
-                <Card>
-                  <CardContent className="pt-4">
-                    <div className="min-h-[100px] whitespace-pre-line">
-                      {summary}
-                    </div>
-                    <div className="flex gap-2 mt-4">
-                      <Button variant="outline" size={"sm"} onClick={() => {}}>
-                        <Share2 className="w-4 h-4 mr-1 stroke-[3px]" />
-                        Share
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size={"sm"}
-                        onClick={handleExport}
-                      >
-                        <Download className="w-4 h-4 mr-1 stroke-[3px]" />
-                        Export
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-                }
+                {summary && (
+                  <Card>
+                    <CardContent className="pt-4">
+                      <div className="min-h-[100px] whitespace-pre-line">
+                        {summary}
+                      </div>
+                      <div className="flex gap-2 mt-4">
+                        <Button
+                          variant="outline"
+                          size={"sm"}
+                          onClick={() => {}}
+                        >
+                          <Share2 className="w-4 h-4 mr-1 stroke-[3px]" />
+                          Share
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size={"sm"}
+                          onClick={handleExport}
+                        >
+                          <Download className="w-4 h-4 mr-1 stroke-[3px]" />
+                          Export
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
               </TabsContent>
 
               <TabsContent value="flashcards">
