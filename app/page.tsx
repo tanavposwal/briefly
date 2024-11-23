@@ -1,20 +1,26 @@
 "use client";
 
-import { useState } from 'react';
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Mic, Share2, Download, BookOpen, Layers, Loader2 } from 'lucide-react';
+import { Mic, Share2, Download, BookOpen, Layers, Loader2 } from "lucide-react";
 
 export default function Home() {
-  const [inputText, setInputText] = useState('');
-  const [summaryFormat, setSummaryFormat] = useState('bullets');
-  const [topic, setTopic] = useState('work');
+  const [inputText, setInputText] = useState("");
+  const [summaryFormat, setSummaryFormat] = useState("bullets");
+  const [topic, setTopic] = useState("work");
   const [isRecording, setIsRecording] = useState(false);
-  const [summary, setSummary] = useState('');
+  const [summary, setSummary] = useState("");
   const [flashcards, setFlashcards] = useState([]);
   const [isSimplifiedMode, setIsSimplifiedMode] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -24,114 +30,135 @@ export default function Home() {
 
   // Topic keywords for offline classification
   const topicKeywords = {
-    work: ['meeting', 'project', 'deadline', 'client', 'report'],
-    study: ['lecture', 'exam', 'homework', 'research', 'notes'],
-    personal: ['goals', 'ideas', 'thoughts', 'plans', 'journal']
+    work: ["meeting", "project", "deadline", "client", "report"],
+    study: ["lecture", "exam", "homework", "research", "notes"],
+    personal: ["goals", "ideas", "thoughts", "plans", "journal"],
   };
 
   // Grok API summarization
-  const generateGrokSummary = async (text: string, format: string, simplified: boolean) => {
+  const generateGrokSummary = async (
+    text: string,
+    format: string,
+    simplified: boolean
+  ) => {
     try {
-      let prompt = '';
-      
-      if (format === 'bullets') {
-        prompt = `Summarize the following text in ${simplified ? '3-5' : '5-8'} clear bullet points:\n\n${text}`;
-      } else if (format === 'paragraph') {
-        prompt = `Create a ${simplified ? 'brief' : 'comprehensive'} paragraph summarizing the following text:\n\n${text}`;
-      } else if (format === 'qa') {
-        prompt = `Generate ${simplified ? '3' : '5'} key question-answer pairs from the following text:\n\n${text}`;
+      let prompt = "";
+
+      if (format === "bullets") {
+        prompt = `Summarize the following text in ${
+          simplified ? "3-5" : "5-8"
+        } clear bullet points:\n\n${text}`;
+      } else if (format === "paragraph") {
+        prompt = `Create a ${
+          simplified ? "brief" : "comprehensive"
+        } paragraph summarizing the following text:\n\n${text}`;
+      } else if (format === "qa") {
+        prompt = `Generate ${
+          simplified ? "3" : "5"
+        } key question-answer pairs from the following text:\n\n${text}`;
       }
 
       // Replace this with your actual Grok API call
-      const response = await fetch('YOUR_GROK_API_ENDPOINT', {
-        method: 'POST',
+      const response = await fetch("YOUR_GROK_API_ENDPOINT", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer YOUR_GROK_API_KEY'
+          "Content-Type": "application/json",
+          Authorization: "Bearer YOUR_GROK_API_KEY",
         },
         body: JSON.stringify({
           prompt: prompt,
           max_tokens: 500,
-          temperature: 0.7
-        })
+          temperature: 0.7,
+        }),
       });
 
       const data = await response.json();
       return data.choices[0].text.trim();
     } catch (error) {
-      console.error('Error calling Grok API:', error);
+      console.error("Error calling Grok API:", error);
       // Fallback to offline summarization
       return generateOfflineSummary(text, format, simplified);
     }
   };
 
   // Offline summarization fallback
-  const generateOfflineSummary = (text: string, format: string, simplified: boolean) => {
-    const sentences = text.split('. ');
+  const generateOfflineSummary = (
+    text: string,
+    format: string,
+    simplified: boolean
+  ) => {
+    const sentences = text.split(". ");
     const summarized = sentences
       .filter((_, i) => i % (simplified ? 3 : 2) === 0)
-      .join('. ');
-      
-    if (format === 'bullets') {
-      return summarized.split('. ').map(s => `• ${s}`).join('\n');
+      .join(". ");
+
+    if (format === "bullets") {
+      return summarized
+        .split(". ")
+        .map((s) => `• ${s}`)
+        .join("\n");
     }
-    
+
     return summarized;
   };
 
   // Topic detection
   const detectTopic = (text: string) => {
-    const words = text.toLowerCase().split(' ');
+    const words = text.toLowerCase().split(" ");
     let topicScores = { work: 0, study: 0, personal: 0 };
-    
+
     Object.entries(topicKeywords).forEach(([topic, keywords]) => {
-      keywords.forEach(keyword => {
-        if (words.includes(keyword)) topicScores[topic as keyof typeof topicScores]++;
+      keywords.forEach((keyword) => {
+        if (words.includes(keyword))
+          topicScores[topic as keyof typeof topicScores]++;
       });
     });
 
-    return Object.entries(topicScores).reduce((a, b) => 
+    return Object.entries(topicScores).reduce((a, b) =>
       //@ts-ignore
-      topicScores[a] > topicScores[b] ? a : b)[0];
+      topicScores[a] > topicScores[b] ? a : b
+    )[0];
   };
 
   // Generate flashcards
   const generateFlashcards = async (text: any) => {
     try {
       // Use Grok API for intelligent flashcard generation
-      const prompt = `Generate ${isSimplifiedMode ? '3' : '5'} flashcard-style question-answer pairs from this text. Format each pair as "Q: question | A: answer":\n\n${text}`;
-      
-      const response = await fetch('YOUR_GROK_API_ENDPOINT', {
-        method: 'POST',
+      const prompt = `Generate ${
+        isSimplifiedMode ? "3" : "5"
+      } flashcard-style question-answer pairs from this text. Format each pair as "Q: question | A: answer":\n\n${text}`;
+
+      const response = await fetch("YOUR_GROK_API_ENDPOINT", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer YOUR_GROK_API_KEY'
+          "Content-Type": "application/json",
+          Authorization: "Bearer YOUR_GROK_API_KEY",
         },
         body: JSON.stringify({
           prompt: prompt,
           max_tokens: 500,
-          temperature: 0.7
-        })
+          temperature: 0.7,
+        }),
       });
 
       const data = await response.json();
-      const pairs = data.choices[0].text.trim().split('\n');
-      
+      const pairs = data.choices[0].text.trim().split("\n");
+
       return pairs.map((pair: string, index: number) => {
-        const [question, answer] = pair.split(' | ');
+        const [question, answer] = pair.split(" | ");
         return {
           id: index,
-          question: question.replace('Q: ', ''),
-          answer: answer.replace('A: ', '')
+          question: question.replace("Q: ", ""),
+          answer: answer.replace("A: ", ""),
         };
       });
     } catch (error) {
-      console.error('Error generating flashcards:', error);
+      console.error("Error generating flashcards:", error);
       // Fallback to simple flashcard generation
-      return text.split('. ').map((sentence: string, i: number) => ({
+      return text.split(". ").map((sentence: string, i: number) => ({
         id: i,
         question: `What is the key point #${i + 1}?`,
-        answer: sentence
+        answer: sentence,
       }));
     }
   };
@@ -154,10 +181,10 @@ export default function Home() {
 
     setIsLoading(true);
     const cacheKey = `${inputText}-${summaryFormat}-${isSimplifiedMode}`;
-    
+
     try {
       let generatedSummary;
-      
+
       if (summaryCache.has(cacheKey)) {
         generatedSummary = summaryCache.get(cacheKey);
       } else {
@@ -168,12 +195,12 @@ export default function Home() {
         );
         summaryCache.set(cacheKey, generatedSummary);
       }
-      
+
       setSummary(generatedSummary);
       const cards = await generateFlashcards(generatedSummary);
       setFlashcards(cards);
     } catch (error) {
-      console.error('Error generating summary:', error);
+      console.error("Error generating summary:", error);
       // Handle error state
     } finally {
       setIsLoading(false);
@@ -182,26 +209,26 @@ export default function Home() {
 
   // Export summary
   const handleExport = () => {
-    const blob = new Blob([summary], { type: 'text/plain' });
+    const blob = new Blob([summary], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
-    a.download = 'summary.txt';
+    a.download = "summary.txt";
     a.click();
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-4">
+    <div className="max-w-4xl h-screen mx-auto p-4 bg-sky-200">
       <div>
         <div>
-          <div className="flex items-center justify-between my-5">
-            <h1 className="text-3xl font-black">SummarEase</h1>
+          <div className="flex items-center justify-between my-5 tracking-wider">
+            <h1 className="text-5xl font-black underline">Briefly</h1>
             <Badge variant="secondary">{topic}</Badge>
           </div>
         </div>
         <div>
           <div className="space-y-4">
-            <div className="flex gap-2">
+            <div className="flex gap-4">
               <Textarea
                 placeholder="Enter or paste your text here..."
                 value={inputText}
@@ -210,15 +237,14 @@ export default function Home() {
               />
               <Button
                 variant="outline"
-                size="icon"
                 onClick={toggleRecording}
-                className={isRecording ? 'bg-red-100' : ''}
+                className={isRecording ? "bg-red-400 hover:bg-red-400" : ""}
               >
-                <Mic className={isRecording ? 'text-red-500' : ''} />
+                <Mic className="w-7 stroke-[3px]" />
               </Button>
             </div>
 
-            <div className="flex gap-4">
+            <div className="flex gap-4 items-center">
               <Select value={summaryFormat} onValueChange={setSummaryFormat}>
                 <SelectTrigger>
                   <SelectValue placeholder="Format" />
@@ -233,13 +259,16 @@ export default function Home() {
               <Button
                 variant="outline"
                 onClick={() => setIsSimplifiedMode(!isSimplifiedMode)}
+                size={"lg"}
               >
-                {isSimplifiedMode ? 'Detailed Mode' : 'Simplified Mode'}
+                {isSimplifiedMode ? "Detailed Mode" : "Simplified Mode"}
               </Button>
 
-              <Button 
+              <Button
                 onClick={handleGenerateSummary}
                 disabled={isLoading || !inputText.trim()}
+                variant={"secondary"}
+                size={"lg"}
               >
                 {isLoading ? (
                   <>
@@ -247,7 +276,7 @@ export default function Home() {
                     Generating...
                   </>
                 ) : (
-                  'Generate Summary'
+                  "Generate Summary"
                 )}
               </Button>
             </div>
@@ -255,16 +284,17 @@ export default function Home() {
             <Tabs defaultValue="summary">
               <TabsList>
                 <TabsTrigger value="summary">
-                  <BookOpen className="w-4 h-4 mr-2" />
+                  <BookOpen className="w-4 h-4 mr-2 stroke-[3px]" />
                   Summary
                 </TabsTrigger>
                 <TabsTrigger value="flashcards">
-                  <Layers className="w-4 h-4 mr-2" />
+                  <Layers className="w-4 h-4 mr-2 stroke-[3px]" />
                   Flashcards
                 </TabsTrigger>
               </TabsList>
 
-              <TabsContent value="summary">
+              <TabsContent value="summary" className="mt-4">
+                {summary && 
                 <Card>
                   <CardContent className="pt-4">
                     <div className="min-h-[100px] whitespace-pre-line">
@@ -272,16 +302,21 @@ export default function Home() {
                     </div>
                     <div className="flex gap-2 mt-4">
                       <Button variant="outline" size={"sm"} onClick={() => {}}>
-                        <Share2 className="w-4 h-4 mr-2" />
+                        <Share2 className="w-4 h-4 mr-1 stroke-[3px]" />
                         Share
                       </Button>
-                      <Button variant="outline" size={"sm"} onClick={handleExport}>
-                        <Download className="w-4 h-4 mr-2" />
+                      <Button
+                        variant="outline"
+                        size={"sm"}
+                        onClick={handleExport}
+                      >
+                        <Download className="w-4 h-4 mr-1 stroke-[3px]" />
                         Export
                       </Button>
                     </div>
                   </CardContent>
                 </Card>
+                }
               </TabsContent>
 
               <TabsContent value="flashcards">
@@ -302,4 +337,4 @@ export default function Home() {
       </div>
     </div>
   );
-};
+}
