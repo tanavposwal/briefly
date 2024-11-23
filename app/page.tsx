@@ -70,7 +70,6 @@ export default function Home() {
         } key question-answer pairs from the following text:\n\n${text}`;
       }
 
-      // Replace this with your actual Grok API call
       //@ts-ignore
       const response = await session!.prompt(prompt)
       return response;
@@ -100,7 +99,6 @@ export default function Home() {
   // Generate flashcards
   const generateFlashcards = async (text: any) => {
     try {
-      // Use Grok API for intelligent flashcard generation
       const prompt = `Generate ${
         isSimplifiedMode ? "3" : "5"
       } flashcard-style question-answer pairs from this text. Format each pair as "Q: question | A: answer":\n\n${text}`;
